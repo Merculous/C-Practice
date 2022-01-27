@@ -3,12 +3,12 @@
 #include <string.h>
 #include <mach/machine.h>
 
-// 0xfeedface 32-bit | 0xfeedfacf 64-bit
-const char magic64[8] = {0xcf, 0xfa, 0xed, 0xfe};
+const char magic32[4] = {0xce, 0xfa, 0xed, 0xfe};
+const char magic64[4] = {0xcf, 0xfa, 0xed, 0xfe};
 
 typedef struct
 {
-    const char *path;
+    char *path;
     size_t file_size;
     char *contents;
 } my_file;
@@ -27,7 +27,15 @@ typedef struct
     uint32_t reserved;
 } mach_file;
 
-size_t getFileSize(const char *path)
+char *copyString(char *str)
+{
+    char *buffer = malloc(sizeof(char) * strlen(str) + 1);
+    memcpy(buffer, str, strlen(str));
+    buffer[strlen(str) + 1] = 0;
+    return buffer;
+}
+
+size_t getFileSize(char *path)
 {
     FILE *fp = fopen(path, "rb");
     if (fp == NULL)
@@ -43,7 +51,7 @@ size_t getFileSize(const char *path)
     }
 }
 
-char *getFileContents(const char *path)
+char *getFileContents(char *path)
 {
     FILE *fp = fopen(path, "rb");
     if (fp == NULL)
@@ -56,12 +64,12 @@ char *getFileContents(const char *path)
         char *buffer = (char *)malloc(sizeof(char) * file_size + 1);
         fread(buffer, 1, file_size, fp);
         fclose(fp);
-        buffer[strlen(buffer) - 1] = 0;
+        buffer[strlen(buffer) + 1] = 0;
         return buffer;
     }
 }
 
-my_file *getFileInfo(const char *path)
+my_file *getFileInfo(char *path)
 {
     my_file *f = malloc(sizeof(my_file));
     f->path = path;
@@ -70,21 +78,27 @@ my_file *getFileInfo(const char *path)
     return f;
 }
 
-mach_file *parseMacho(char *contents)
+void parseMacho(my_file *f)
 {
-    mach_file *p = malloc(sizeof(mach_file));
-    return p;
+    mach_file *m = malloc(sizeof(mach_file));
+    memcpy(m, f->contents, sizeof(mach_file));
+    for (size_t i = 0; i < sizeof(mach_file); i++)
+    {
+        printf("0x%02x\n", f->contents[i]);
+    }
+    free(m);
 }
 
-int main(int argc, const char *argv[])
+int main(int argc, char **argv)
 {
     if (argc == 2)
     {
-        my_file *info = getFileInfo(argv[1]);
-        mach_file *m = parseMacho(info->contents);
-        free(m);
+        char *path = copyString(argv[1]);
+        my_file *info = getFileInfo(path);
+        parseMacho(info);
         free(info->contents);
         free(info);
+        free(path);
         return 0;
     }
     else
