@@ -84,7 +84,7 @@ void parseMacho(my_file *f)
     memcpy(m, f->contents, sizeof(mach_file));
     for (size_t i = 0; i < sizeof(mach_file); i++)
     {
-        printf("0x%02x\n", f->contents[i]);
+        printf("%zu: 0x%02x\n", i, f->contents[i]);
     }
     free(m);
 }
