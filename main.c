@@ -27,11 +27,18 @@ typedef struct
     uint32_t reserved;
 } mach_file;
 
+char *returnCharBuffer(size_t size)
+{
+    char *buffer = (char *)malloc(sizeof(char) * size + 1);
+    return buffer;
+}
+
 char *copyString(char *str)
 {
-    char *buffer = malloc(sizeof(char) * strlen(str) + 1);
-    memcpy(buffer, str, strlen(str));
-    buffer[strlen(str) + 1] = 0;
+    size_t str_len = (size_t)strlen(str);
+    char *buffer = returnCharBuffer(str_len);
+    memcpy(buffer, str, str_len);
+    buffer[str_len + 1] = 0;
     return buffer;
 }
 
@@ -61,7 +68,7 @@ char *getFileContents(char *path)
     else
     {
         size_t file_size = getFileSize(path);
-        char *buffer = (char *)malloc(sizeof(char) * file_size + 1);
+        char *buffer = returnCharBuffer(file_size);
         fread(buffer, 1, file_size, fp);
         fclose(fp);
         buffer[strlen(buffer) + 1] = 0;
