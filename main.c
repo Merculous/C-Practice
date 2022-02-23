@@ -71,7 +71,7 @@ char *getFileContents(char *path)
         char *buffer = returnCharBuffer(file_size);
         fread(buffer, 1, file_size, fp);
         fclose(fp);
-        buffer[strlen(buffer) + 1] = 0;
+        buffer[file_size + 1] = 0;
         return buffer;
     }
 }
