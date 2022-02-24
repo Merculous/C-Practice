@@ -29,16 +29,15 @@ typedef struct
 
 char *returnCharBuffer(size_t size)
 {
-    char *buffer = (char *)malloc(sizeof(char) * size + 1);
+    char *buffer = (char *)calloc(size, sizeof(char));
     return buffer;
 }
 
-char *copyString(char *str)
+char *copyString(char *str, size_t size)
 {
-    size_t str_len = (size_t)strlen(str);
-    char *buffer = returnCharBuffer(str_len);
-    memcpy(buffer, str, str_len);
-    buffer[str_len + 1] = 0;
+    char *buffer = returnCharBuffer(size);
+    memcpy(buffer, str, size);
+    buffer[size + 1] = 0;
     return buffer;
 }
 
@@ -78,7 +77,7 @@ char *getFileContents(char *path)
 
 my_file *getFileInfo(char *path)
 {
-    my_file *f = malloc(sizeof(my_file));
+    my_file *f = (my_file *)calloc(1, sizeof(my_file));
     f->path = path;
     f->file_size = getFileSize(f->path);
     f->contents = getFileContents(f->path);
@@ -87,7 +86,7 @@ my_file *getFileInfo(char *path)
 
 void parseMacho(my_file *f)
 {
-    mach_file *m = malloc(sizeof(mach_file));
+    mach_file *m = (mach_file *)calloc(1, sizeof(mach_file));
     memcpy(m, f->contents, sizeof(mach_file));
     for (size_t i = 0; i < sizeof(mach_file); i++)
     {
@@ -100,8 +99,9 @@ int main(int argc, char **argv)
 {
     if (argc == 2)
     {
-        char *path = copyString(argv[1]);
+        char *path = copyString(argv[1], (size_t)strlen(argv[1]));
         my_file *info = getFileInfo(path);
+        printf("%s: %zu\n", path, info->file_size);
         parseMacho(info);
         free(info->contents);
         free(info);
