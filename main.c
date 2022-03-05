@@ -35,9 +35,9 @@ char *returnCharBuffer(size_t size)
 
 char *copyString(char *str, size_t size)
 {
-    char *buffer = returnCharBuffer(size);
+    char *buffer = returnCharBuffer(size + 1);
     memcpy(buffer, str, size);
-    buffer[size + 1] = 0;
+    buffer[size + 1] = '\0';
     return buffer;
 }
 
@@ -70,7 +70,6 @@ char *getFileContents(char *path)
         char *buffer = returnCharBuffer(file_size);
         fread(buffer, 1, file_size, fp);
         fclose(fp);
-        buffer[file_size + 1] = 0;
         return buffer;
     }
 }
@@ -88,10 +87,14 @@ void parseMacho(my_file *f)
 {
     mach_file *m = (mach_file *)calloc(1, sizeof(mach_file));
     memcpy(m, f->contents, sizeof(mach_file));
-    for (size_t i = 0; i < sizeof(mach_file); i++)
-    {
-        printf("%zu: 0x%02x\n", i, f->contents[i]);
-    }
+    printf("magic: %x\n", m->magic);
+    printf("cputype: %x\n", m->cputype);
+    printf("cpusubtype: %x\n", m->cpusubtype);
+    printf("filetype: %x\n", m->filetype);
+    printf("ncmds: %x\n", m->ncmds);
+    printf("sizeofcmds: %x\n", m->sizeofcmds);
+    printf("flags: %x\n", m->flags);
+    printf("reserved: %x\n", m->reserved);
     free(m);
 }
 
