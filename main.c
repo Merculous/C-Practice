@@ -3,18 +3,16 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <limits.h>
-#include <time.h>
+#include <string.h>
 
-/*
 typedef struct Difference
 {
     uint8_t* src1;
     uint8_t* src2;
     size_t offset;
     size_t size;
-    struct Difference_t *next;
+    struct Difference *next;
 } Difference_t;
-*/
 
 FILE* initFile(const char* path) {
     if (!path) {
@@ -64,15 +62,15 @@ uint8_t* readFile(FILE* f) {
     return buffer;
 }
 
-int getDifferences(FILE* f1, FILE* f2) {
+Difference_t* getDifferences(FILE* f1, FILE* f2) {
     if (!f1) {
         printf("Error getting FILE 1 pointer!\n");
-        return 1;
+        return NULL;
     }
 
     if (!f2) {
         printf("Error getting FILE 2 pointer!\n");
-        return 1;
+        return NULL;
     }
 
     size_t fileSize1 = getFileSize(f1);
@@ -80,7 +78,7 @@ int getDifferences(FILE* f1, FILE* f2) {
 
     if (!data1) {
         printf("Error getting FILE 1 data!\n");
-        return 1;
+        return NULL;
     }
 
     size_t fileSize2 = getFileSize(f2);
@@ -89,25 +87,69 @@ int getDifferences(FILE* f1, FILE* f2) {
     if (!data2) {
         printf("Error getting FILE 2 data!\n");
         free(data1);
-        return 1;
+        return NULL;
     }
 
     if (fileSize1 != fileSize2) {
         printf("File sizes do not match!\n");
         free(data1);
         free(data2);
-        return 1;
+        return NULL;
     }
 
     size_t differenceStart = SIZE_MAX;
     size_t differenceSize = 0;
 
+    Difference_t* head = NULL;
+    Difference_t* headPtr = NULL;
+
     for (size_t offset = 0; offset < fileSize1; offset++) {
         if (data1[offset] == data2[offset]) {
             if (differenceStart >= 0 && differenceSize >= 1) {
-                // TODO Add struct here
-                printf("Difference at: 0x%zx\n", differenceStart);
-                printf("Difference size: 0x%zx\n", differenceSize);
+                Difference_t *difference = malloc(sizeof(*difference));
+
+                if (!difference) {
+                    printf("Error allocting space for difference!\n");
+                    free(data1);
+                    free(data2);
+                    return NULL;
+                }
+
+                difference->offset = differenceStart;
+                difference->size = differenceSize;
+                difference->next = NULL;
+
+                difference->src1 = malloc(difference->size);
+
+                if (!difference->src1) {
+                    printf("Error during allocation of src1!\n");
+                    free(data1);
+                    free(data2);
+                    return NULL;
+                }
+
+                memcpy(difference->src1, data1 + differenceStart, difference->size);
+
+                difference->src2 = malloc(difference->size);
+
+                if (!difference->src2) {
+                    printf("Error durring allocation of src2!\n");
+                    free(difference->src1);
+                    free(data1);
+                    free(data2);
+                    return NULL;
+                }
+
+                memcpy(difference->src2, data2 + differenceStart, difference->size);
+
+                if (!head) {
+                    head = difference;
+                    headPtr = head;
+                } else {
+                    head->next = difference;
+                    head = head->next;
+                }
+
                 differenceStart = SIZE_MAX;
                 differenceSize = 0;
                 continue;
@@ -130,7 +172,41 @@ int getDifferences(FILE* f1, FILE* f2) {
 
     free(data1);
     free(data2);
-    return 0;
+    return headPtr;
+}
+
+void printDifferences(Difference_t *differences) {
+    for (Difference_t* difference = differences; difference != NULL; difference = difference->next) {
+        printf("Difference offset: 0x%zx\n", difference->offset);
+        printf("Difference size: 0x%zx\n", difference->size);
+
+        printf("Src1: ");
+
+        for (size_t i = 0; i < difference->size; i++) {
+            printf("%02x", difference->src1[i]);
+        }
+
+        printf("\n");
+
+        printf("Src2: ");
+
+        for (size_t i = 0; i < difference->size; i++) {
+            printf("%02x", difference->src2[i]);
+        }
+
+        printf("\n");
+    }
+}
+
+void freeDifferences(Difference_t* differences) {
+    while (differences != NULL) {
+        Difference_t* difference = differences;
+        differences = difference->next;
+
+        free(difference->src1);
+        free(difference->src2);
+        free(difference);
+    }
 }
 
 int main(int argc, char** argv) {
@@ -142,20 +218,16 @@ int main(int argc, char** argv) {
     FILE *f1 = initFile(argv[1]);
     FILE *f2 = initFile(argv[2]);
 
-    clock_t start = clock();
-    int exitCode = getDifferences(f1, f2);
-    clock_t end = clock();
+    Difference_t* differences = getDifferences(f1, f2);
+    printDifferences(differences);
+    freeDifferences(differences);
 
-    if (exitCode) {
+    if (!differences) {
         printf("Error getting differences!\n");
         fclose(f1);
         fclose(f2);
         return 1;
     }
-
-    double duration = (double)(end - start) / CLOCKS_PER_SEC;
-
-    printf("Duration: %f second(s)\n", duration);
 
     fclose(f1);
     fclose(f2);
