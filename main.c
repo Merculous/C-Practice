@@ -7,20 +7,36 @@
 
 typedef struct Difference
 {
+    size_t size;
+    size_t offset;
     uint8_t* src1;
     uint8_t* src2;
-    size_t offset;
-    size_t size;
     struct Difference *next;
 } Difference_t;
 
-FILE* initFile(const char* path) {
+FILE* initFileForReading(const char* path) {
     if (!path) {
         printf("Error reading path!\n");
         return NULL;
     }
 
     FILE* f = fopen(path, "rb");
+
+    if (!f) {
+        printf("Error opening path!\n");
+        return NULL;
+    }
+
+    return f;
+}
+
+FILE* initFileForWriting(const char* path) {
+    if (!path) {
+        printf("Error reading path!\n");
+        return NULL;
+    }
+
+    FILE* f = fopen(path, "wb");
 
     if (!f) {
         printf("Error opening path!\n");
@@ -175,7 +191,12 @@ Difference_t* getDifferences(FILE* f1, FILE* f2) {
     return headPtr;
 }
 
-void printDifferences(Difference_t *differences) {
+int printDifferences(Difference_t *differences) {
+    if (!differences) {
+        printf("No differences available!\n");
+        return 1;
+    }
+
     for (Difference_t* difference = differences; difference != NULL; difference = difference->next) {
         printf("Difference offset: 0x%zx\n", difference->offset);
         printf("Difference size: 0x%zx\n", difference->size);
@@ -196,9 +217,15 @@ void printDifferences(Difference_t *differences) {
 
         printf("\n");
     }
+    return 0;
 }
 
-void freeDifferences(Difference_t* differences) {
+int freeDifferences(Difference_t* differences) {
+    if (!differences) {
+        printf("No differences available!\n");
+        return 1;
+    }
+
     while (differences != NULL) {
         Difference_t* difference = differences;
         differences = difference->next;
@@ -207,23 +234,79 @@ void freeDifferences(Difference_t* differences) {
         free(difference->src2);
         free(difference);
     }
+    return 0;
 }
 
-int main(int argc, char** argv) {
-    if (argc != 3) {
-        printf("Usage: <src1> <src2>\n");
+int writeDifferencesToFile(Difference_t* differences, const char *path) {
+    if (!differences) {
+        printf("No differences to write!\n");
         return 1;
     }
 
-    FILE *f1 = initFile(argv[1]);
-    FILE *f2 = initFile(argv[2]);
+    if (!path) {
+        printf("Failed to read path!");
+        return 1;
+    }
+
+    FILE* f = initFileForWriting(path);
+
+    for (Difference_t* difference = differences; difference != NULL; difference = difference->next) {
+        fwrite(&difference->size, sizeof(size_t), 1, f);
+        fwrite(&difference->offset, sizeof(size_t), 1, f);
+        fwrite(difference->src1, 1, difference->size, f);
+        fwrite(difference->src2, 1, difference->size, f);
+    }
+
+    fclose(f);
+    return 0;
+}
+
+int main(int argc, char** argv) {
+    if (argc != 4) {
+        printf("Usage: <src1> <src2> <differences>\n");
+        return 1;
+    }
+
+    FILE *f1 = initFileForReading(argv[1]);
+    FILE *f2 = initFileForReading(argv[2]);
 
     Difference_t* differences = getDifferences(f1, f2);
-    printDifferences(differences);
-    freeDifferences(differences);
 
     if (!differences) {
         printf("Error getting differences!\n");
+        fclose(f1);
+        fclose(f2);
+        return 1;
+    }
+
+    int printExitCode = printDifferences(differences);
+
+    if (printExitCode) {
+        printf("Error occurred during printing of differences!\n");
+        int freeExitCode = freeDifferences(differences);
+
+        if (freeExitCode) {
+            printf("Error occurred freeing differences!\n");
+        }
+
+        fclose(f1);
+        fclose(f2);
+        return 1;
+    }
+
+    int writeExitCode = writeDifferencesToFile(differences, argv[3]);
+
+    if (writeExitCode) {
+        printf("Failed writing differences!\n");
+        fclose(f1);
+        fclose(f2);
+        return 1;
+    }
+
+    int freeExitCode = freeDifferences(differences);
+
+    if (freeExitCode) {
+        printf("Failed to free differences!\n");
         fclose(f1);
         fclose(f2);
         return 1;
